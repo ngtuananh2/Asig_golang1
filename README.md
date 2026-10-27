@@ -10,6 +10,21 @@ REST API quản lý người dùng, dự án, công việc và bình luận. Sta
 
 Compose khởi động PostgreSQL và Redis, đợi health check rồi mới khởi động API. GORM tạo/cập nhật schema khi ứng dụng khởi động. Có thể chạy không Docker bằng cách đặt `DATABASE_URL`, `JWT_SECRET`, `REDIS_URL` rồi chạy `go run ./cmd/api`.
 
+### Kiến trúc
+
+```text
+Client
+  -> Gin middleware (logging, recovery, CORS, rate limit)
+  -> JWT middleware (các route riêng tư)
+  -> Handler (HTTP, binding/validation, JSON response)
+  -> Service (đăng ký, xác thực mật khẩu)
+  -> Repository / GORM
+  -> PostgreSQL
+Handler <-> Redis (cache GET theo user, TTL 30 giây)
+```
+
+Mã khởi động nằm ở `cmd/api`; các thành phần ứng dụng nằm trong `internal/handlers`, `internal/services`, `internal/repositories`, `internal/models` và `internal/middlewares`. Schema được GORM `AutoMigrate` khi ứng dụng khởi động. CRUD hiện truy cập GORM trực tiếp từ handler; repository/service đang được dùng chủ yếu cho luồng đăng ký và xác thực.
+
 ## Authentication và quyền
 
 Đăng ký tại `POST /api/v1/auth/register`, đăng nhập tại `POST /api/v1/auth/login`. Gửi token ở header `Authorization: Bearer <token>`. User chỉ đọc/sửa/xóa dữ liệu của mình. Admin được phép xem/quản lý user khác; admin có thể tạo user mới qua `POST /api/v1/users`.
@@ -36,6 +51,36 @@ Các route resource cần JWT. GET list hỗ trợ `page`, `limit` (tối đa 10
 
 Success trả `{"data": ...}`; list kèm `meta`. Error trả `{"error":{"code":"...","message":"..."}}`. Tài liệu OpenAPI đầy đủ ở [docs/openapi.yaml](docs/openapi.yaml).
 
+### Thử API bằng curl
+
+Các ví dụ dưới đây dùng Bash/Git Bash. Sau khi service khỏe, đăng ký user và đăng nhập để nhận JWT:
+
+```sh
+curl -sS http://localhost:8080/health
+curl -sS -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Ada Lovelace","email":"ada@example.com","password":"correct-horse"}'
+curl -sS -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"ada@example.com","password":"correct-horse"}'
+```
+
+Lấy trường `data.token` từ response đăng nhập, đặt vào biến `TOKEN`, rồi gọi route private:
+
+```sh
+export TOKEN="<JWT nhận được từ bước login>"
+curl -sS http://localhost:8080/api/v1/projects \
+  -H "Authorization: Bearer $TOKEN"
+curl -sS -X POST http://localhost:8080/api/v1/projects \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Research roadmap","description":"Plan the next sprint"}'
+curl -sS "http://localhost:8080/api/v1/projects?page=1&limit=10&sort=name&order=asc" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+`/` không phải trang web và sẽ trả JSON 404; dùng `/health` để kiểm tra server. Nếu container API thoát, xem nguyên nhân bằng `docker compose ps -a` và `docker compose logs api`. Đảm bảo `JWT_SECRET` trong `.env` dài ít nhất 16 ký tự; không chia sẻ hoặc commit `.env`.
+
 ## Redis, logging, CORS và rate limit
 
 GET của resource private được cache theo user và query trong 30 giây. POST/PUT/DELETE xóa cache của user đó. Khi Redis không khả dụng, API tiếp tục chạy không cache. Rate limit hiện là 120 request/phút trên mỗi IP trong từng process; nếu chạy nhiều replica cần chuyển limiter sang Redis để chia sẻ quota. Gin access logger ghi method, đường dẫn, status và thời gian; recovery và lỗi route trả JSON.
@@ -58,4 +103,4 @@ Free Postgres trên Render hết hạn sau 30 ngày và free Key Value không l�
 
 ## Báo cáo
 
-Bản báo cáo cá nhân có thể hoàn thiện từ [docs/report.md](docs/report.md). Điền họ tên, mã học viên, lớp, URL deploy, link GitHub và video demo trước khi nộp.
+Bản Word hiện tại: [docs/BAO_CAO_BAI_TAP_GO.docx](docs/BAO_CAO_BAI_TAP_GO.docx). Bản Markdown tham khảo: [docs/report.md](docs/report.md). Điền mã học viên, URL deploy và video demo trước khi nộp. Video Postman/curl cần quay thực tế tối thiểu 2 phút.
