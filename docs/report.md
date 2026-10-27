@@ -1,12 +1,13 @@
 # BÁO CÁO ĐỒ ÁN: TASK MANAGEMENT API
 
-**Họ tên:** ........................................................  
-**Mã học viên:** ...................................................  
-**Lớp:** ...........................................................  
-**Tên bài tập:** Building Back-End with Golang  
-**Ngày nộp:** ......................................................
+**Họ tên:** Nguyễn Tuấn Anh
 
-> Trước khi nộp, điền thông tin cá nhân, link repository, URL deploy, link video demo và số liệu test sau khi chạy trên máy nộp bài.
+**Mã học viên:** 114010123020
+
+**Lớp:** WD1113
+**Tên bài tập:** Building Back-End with Golang  
+
+
 
 ## 1. Mục tiêu và phạm vi
 
