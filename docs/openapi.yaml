@@ -1,0 +1,158 @@
+openapi: 3.0.3
+info:
+  title: Task Management API
+  version: 1.0.0
+  description: JWT protected REST API for users, projects, tasks and comments.
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Health
+  - name: Auth
+  - name: Users
+  - name: Projects
+  - name: Tasks
+  - name: Comments
+paths:
+  /health:
+    get:
+      tags: [Health]
+      security: []
+      responses:
+        '200': { description: Service is healthy }
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 120 }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        '201': { description: User registered }
+        '400': { description: Invalid input }
+        '409': { description: Email already registered }
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200': { description: JWT token returned }
+        '401': { description: Invalid credentials }
+  /api/v1/users:
+    get:
+      tags: [Users]
+      summary: List users (admin only)
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Search' }]
+      responses: { '200': { description: User page }, '403': { description: Admin required } }
+    post:
+      tags: [Users]
+      summary: Create user (admin only)
+      responses: { '201': { description: User created }, '403': { description: Admin required } }
+  /api/v1/users/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get:
+      tags: [Users]
+      summary: Get own account or any account as admin
+      responses: { '200': { description: User }, '403': { description: Forbidden }, '404': { description: Not found } }
+    put:
+      tags: [Users]
+      summary: Update own account or any account as admin
+      responses: { '200': { description: Updated user }, '400': { description: Invalid input }, '409': { description: Email conflict } }
+    delete:
+      tags: [Users]
+      summary: Delete another account as admin
+      responses: { '204': { description: Deleted }, '403': { description: Forbidden } }
+  /api/v1/projects:
+    get:
+      tags: [Projects]
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Search' }]
+      responses: { '200': { description: Project page } }
+    post:
+      tags: [Projects]
+      requestBody: { $ref: '#/components/requestBodies/Project' }
+      responses: { '201': { description: Project created }, '400': { description: Invalid input } }
+  /api/v1/projects/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get: { tags: [Projects], responses: { '200': { description: Project }, '404': { description: Not found } } }
+    put: { tags: [Projects], requestBody: { $ref: '#/components/requestBodies/Project' }, responses: { '200': { description: Updated } } }
+    delete: { tags: [Projects], responses: { '204': { description: Deleted } } }
+  /api/v1/tasks:
+    get:
+      tags: [Tasks]
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { name: status, in: query, schema: { type: string, enum: [todo, in_progress, done] } }
+      responses: { '200': { description: Task page } }
+    post:
+      tags: [Tasks]
+      requestBody: { $ref: '#/components/requestBodies/Task' }
+      responses: { '201': { description: Task created }, '404': { description: Project not found } }
+  /api/v1/tasks/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get: { tags: [Tasks], responses: { '200': { description: Task }, '404': { description: Not found } } }
+    put: { tags: [Tasks], requestBody: { $ref: '#/components/requestBodies/Task' }, responses: { '200': { description: Updated } } }
+    delete: { tags: [Tasks], responses: { '204': { description: Deleted } } }
+  /api/v1/comments:
+    get:
+      tags: [Comments]
+      parameters: [{ $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/Limit' }]
+      responses: { '200': { description: Comment page } }
+    post:
+      tags: [Comments]
+      requestBody: { $ref: '#/components/requestBodies/Comment' }
+      responses: { '201': { description: Comment created }, '404': { description: Task not found } }
+  /api/v1/comments/{id}:
+    parameters: [{ $ref: '#/components/parameters/ID' }]
+    get: { tags: [Comments], responses: { '200': { description: Comment }, '404': { description: Not found } } }
+    put: { tags: [Comments], requestBody: { $ref: '#/components/requestBodies/Comment' }, responses: { '200': { description: Updated } } }
+    delete: { tags: [Comments], responses: { '204': { description: Deleted } } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    ID: { name: id, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+    Search: { name: q, in: query, schema: { type: string } }
+  requestBodies:
+    Project:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: { name: { type: string }, description: { type: string } }
+    Task:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: { project_id: { type: integer }, title: { type: string }, description: { type: string }, status: { type: string }, due_at: { type: string, format: date-time } }
+    Comment:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: { task_id: { type: integer }, body: { type: string } }
+security:
+  - bearerAuth: []
